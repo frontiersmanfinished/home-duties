@@ -99,6 +99,7 @@ const TIPS = [
   ['Today', 'One big "Do this next" card, then anything overdue, due today and quick wins. Tap the round tick to finish a chore. You get 5 seconds to undo. The pills choose whose chores you see: "Mine + Anyone" is the default. "I\'ve got 10 minutes" shows only short jobs.'],
   ['Overdue', 'Nothing hides. Overdue chores stay on Today and deepen in colour the later they get.'],
   ['Every day chores', 'Chores that roll over sit quietly at the bottom of Today. Ticking is optional. If you leave one, it just comes back tomorrow, never goes overdue and doesn\'t touch your streak.'],
+  ['Skipping', 'Not needed today? Open the chore and tap Skip. It keeps the last time it was really done and moves on to the next one, without breaking your streak.'],
   ['Swipes and selecting', 'Swipe a chore right for Done, left for snooze or skip. Press and hold to select several, then move, reassign or delete them together.'],
   ['Rooms', 'Chores by room. The bar fills as a chore gets closer to due: green, then amber, then coral.'],
   ['All', 'Every chore in one flat table. Tap a column heading to sort, or search at the top. Slide sideways to see more columns.'],

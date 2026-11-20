@@ -31,7 +31,7 @@ function formHtml(c, draft) {
   const dueLabel = st.due ? `${E.dueText(st, day)} (${E.shortDate(st.due)})` : 'Not set';
   return `<div class="f-head"><button type="button" class="tile-btn" data-act="icons" aria-label="Choose icon">${tile(c)}</button><input class="f-title" data-f="title" value="${esc(c.title)}" placeholder="Chore name" aria-label="Chore name"><button class="x" data-close aria-label="Close">${icon('x')}</button></div>
   <div id="f-icons"></div>
-  ${draft ? '' : `<p class="muted f-sub">${esc(E.lastDoneText(c, day))} · ${esc(E.dueText(st, day))}</p><div class="row acts">${st.status === 'rollover' ? `<button class="btn primary" data-act="roll">${icon('check')} ${st.ticked ? 'Untick' : 'Tick for today'}</button>` : `<button class="btn primary" data-act="done">${icon('check')} Done</button>`}${st.status === 'rollover' ? '' : `<button class="btn ghost" data-act="later">${icon('alarm-clock')} Later</button><button class="btn ghost" data-act="doneby">Done by…</button>`}</div>`}
+  ${draft ? '' : `<p class="muted f-sub">${esc(E.lastDoneText(c, day))} · ${esc(E.dueText(st, day))}</p><div class="row acts">${st.status === 'rollover' ? `<button class="btn primary" data-act="roll">${icon('check')} ${st.ticked ? 'Untick' : 'Tick for today'}</button>` : `<button class="btn primary" data-act="done">${icon('check')} Done</button>`}${st.status === 'rollover' ? '' : `${c.repeat.type !== 'none' ? `<button class="btn ghost" data-act="skip">${icon('skip-forward')} Skip</button>` : ''}<button class="btn ghost" data-act="later">${icon('alarm-clock')} Later</button><button class="btn ghost" data-act="doneby">Done by…</button>`}</div>`}
   <label class="fld"><span>Room</span><select data-f="roomId">${S.rooms.map(r => `<option value="${esc(r.id)}" ${r.id === c.roomId ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></label>
   <div class="fld"><span>Who</span><div class="pills wrap">${chip('who', 'anyone', anyone, 'Anyone')}${S.people.map(p => chip('who', p.id, who.includes(p.id), p.name)).join('')}</div></div>
   <div class="fld"><span>Repeat</span><div class="seg">${[['none', 'No repeat'], ['since', 'After last done'], ['fixed', 'Fixed day']].map(([v, l]) => `<button type="button" class="${R.type === v ? 'on' : ''}" data-rtype="${v}">${l}</button>`).join('')}</div></div>
@@ -108,6 +108,7 @@ export function openChore(id, draft = null) {
     else if (a === 'create') { if (!model.title.trim()) return toast('Give it a name first'); D.addChore(model); closeSheet(); toast('Chore added'); }
     else if (a === 'done') { closeSheet(); undoToast('Done', D.markDone(id)); }
     else if (a === 'roll') { closeSheet(); D.tickRollover(id); }
+    else if (a === 'skip') { closeSheet(); undoToast('Skipped this time', D.skipChore(id)); }
     else if (a === 'later') snoozeSheet(id);
     else if (a === 'doneby') pickFrom('Who did it?', S.people.map(p => ({ label: p.name, value: p })), p => { closeSheet(); undoToast(`Done by ${p.name}`, D.markDone(id, { id: p.id, name: p.name })); });
     else if (a === 'preset') { D.savePreset(model); toast('Saved as a preset'); }

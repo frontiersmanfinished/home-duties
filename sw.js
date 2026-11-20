@@ -1,5 +1,5 @@
 // Keeps the app and the Firebase code on the phone so it opens with no signal.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const APP_CACHE = `home-duties-${VERSION}`;
 const SDK_CACHE = 'home-duties-sdk-12.18.0';
 const SDK = ['app', 'auth', 'firestore'].map(n => `https://www.gstatic.com/firebasejs/12.18.0/firebase-${n}.js`);
