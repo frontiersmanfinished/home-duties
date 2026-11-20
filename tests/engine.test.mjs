@@ -31,6 +31,13 @@ c=since(7); s=E.stateOf(c,'2026-11-26',S); d=E.doneChanges(c,s,Date.UTC(2026,10,
 assert.equal(E.stateOf({...c,snoozedUntil:'2026-11-29'},'2026-11-27',S).status,'soon');
 // range repeat
 const rg=since(10,{repeat:{type:'since',days:10,daysMax:14,weekday:1,everyWeeks:1}}); assert.equal(E.stateOf(rg,'2026-12-01',S).status,'today'); assert.equal(E.stateOf(rg,'2026-12-03',S).status,'today'); assert.equal(E.stateOf(rg,'2026-12-05',S).daysLate,2);
+// as needed
+let an=E.newChore({id:'an',title:'Clean car seats',startDate:'2026-11-01',repeat:{type:'asneeded',days:7,nudgeDays:null}});
+s=E.stateOf(an,T,S); assert.equal(s.status,'asneeded'); assert.equal(s.due,null); assert.equal(s.nudge,false); assert.equal(s.sinceDays,18);
+assert.equal(E.stateOf({...an,repeat:{...an.repeat,nudgeDays:14}},T,S).nudge,true);
+d=E.doneChanges(an,s,new Date(2026,10,19,10).getTime(),who,T); an={...an,...d.patch}; s=E.stateOf(an,'2026-11-25',S); assert.equal(s.status,'asneeded'); assert.equal(s.sinceDays,6); assert.equal(E.sinceText(s),'6 days since last done');
+assert.equal(E.buildToday([an],T,S,'all',null).asNeeded.length,1); assert.equal(E.buildToday([an],T,S,'all',null).overdueCount,0);
+assert.equal(E.rowsFromText('Chore,Frequency\nClean car seats,As needed')[0].asNeeded,true);
 // streak
 const L=(day,kind='done')=>({day,kind}); assert.equal(E.streak([L(T),L('2026-11-18'),L('2026-11-17','skip'),L('2026-11-16')],T),3); assert.equal(E.streak([L('2026-11-18')],T),1); assert.equal(E.streak([L('2026-11-17')],T),0);
 // import

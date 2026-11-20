@@ -31,7 +31,7 @@ export const DEFAULT_EFFORTS = [5, 15, 30, 60];
 export function newChore(over = {}) {
   return {
     title: '', roomId: null, assignees: ['anyone'], icon: null, effort: 15, notes: '', steps: [], stepsDone: [],
-    repeat: { type: 'none', days: 7, daysMax: null, weekday: 1, everyWeeks: 1, anchor: null },
+    repeat: { type: 'none', days: 7, daysMax: null, weekday: 1, everyWeeks: 1, anchor: null, nudgeDays: null },
     rollForward: true, rollsOver: false, months: null, seasonal: null, alt: null, shifts: {}, holidayShift: false, timeOfDay: '',
     startDate: null, dueDate: null, snoozedUntil: null, doneThrough: null, last: null, skip: null, tickedOn: null,
     completedAt: null, paused: false, deletedAt: null, notify: false, calendar: false, ...over,
@@ -128,6 +128,13 @@ export function stateOf(c, day, seasons) {
   if (c.deletedAt) return { ...s, status: 'deleted' };
   if (c.paused) return { ...s, status: 'paused' };
   const t = c.repeat.type;
+  if (t === 'asneeded') {
+    // No due date and never overdue. An optional nudge shows after a set number of days.
+    const from = c.last ? isoOfMs(c.last.at) : c.startDate;
+    s.sinceDays = from ? Math.max(0, diffDays(day, from)) : null;
+    s.nudge = !!(c.repeat.nudgeDays && s.sinceDays !== null && s.sinceDays >= c.repeat.nudgeDays);
+    return { ...s, status: 'asneeded' };
+  }
   if (t === 'none') {
     if (c.completedAt) return { ...s, status: 'done' };
     s.due = c.dueDate || null;
@@ -189,11 +196,12 @@ export function buildToday(chores, day, seasons, filter, meId, doneToday = 0, ma
   const fits = s => !maxMinutes || (s.chore.effort || 0) <= maxMinutes;
   const overdue = rows.filter(s => s.status === 'overdue' && fits(s)).sort(sortByUrgency);
   const dueToday = rows.filter(s => s.status === 'today' && fits(s)).sort(sortByUrgency);
+  const asNeeded = rows.filter(s => s.status === 'asneeded').sort((a, b) => (b.nudge - a.nudge) || ((b.sinceDays ?? -1) - (a.sinceDays ?? -1)) || a.title.localeCompare(b.title));
   const rollover = rows.filter(s => s.status === 'rollover').sort((a, b) => (a.ticked - b.ticked) || a.title.localeCompare(b.title));
   const quick = rows.filter(s => s.status === 'soon' && (s.chore.effort || 0) <= 10).sort(sortByUrgency).slice(0, 4);
   const next = overdue[0] || dueToday[0] || quick[0] || null;
   const total = doneToday + rows.filter(s => s.status === 'overdue' || s.status === 'today').length;
-  return { next, overdue: overdue.filter(s => s !== next), dueToday: dueToday.filter(s => s !== next), quick: quick.filter(s => s !== next), rollover, total, done: doneToday, overdueCount: rows.filter(s => s.status === 'overdue').length };
+  return { next, overdue: overdue.filter(s => s !== next), dueToday: dueToday.filter(s => s !== next), quick: quick.filter(s => s !== next), rollover, asNeeded, total, done: doneToday, overdueCount: rows.filter(s => s.status === 'overdue').length };
 }
 
 /** Due dates for a chore between two days, inclusive, assuming it is done on time. */
@@ -260,6 +268,7 @@ export function lastDoneText(c, day) {
   return c.startDate && c.repeat.type !== 'none' ? 'Not ticked yet' : 'Not done yet';
 }
 export function dueText(st, day) {
+  if (st.status === 'asneeded') return st.nudge ? `Worth a look · ${sinceText(st)}` : 'As needed';
   if (st.status === 'resting') return `Resting until ${MONTHS[monthOf(st.restingUntil) - 1]}`;
   if (st.status === 'paused') return 'Paused';
   if (st.status === 'done') return 'Done';
@@ -272,9 +281,14 @@ export function dueText(st, day) {
   if (d < 60) return `Due in ${d} days`;
   return `Due ${shortDate(st.due)}`;
 }
+export function sinceText(st) {
+  if (!st.chore.last) return 'Not done yet';
+  return st.sinceDays === 0 ? 'Done today' : `${st.sinceDays} day${st.sinceDays === 1 ? '' : 's'} since last done`;
+}
 export function intervalText(c) {
   const r = c.repeat;
   if (r.type === 'none') return 'No repeat';
+  if (r.type === 'asneeded') return r.nudgeDays ? `As needed (nudge after ${r.nudgeDays} days)` : 'As needed';
   if (r.type === 'fixed') return `Every ${(r.everyWeeks || 1) > 1 ? r.everyWeeks + ' weeks on ' : ''}${DAYS_LONG[r.weekday ?? 1]}`;
   const d = r.days;
   const range = r.daysMax ? `${d} to ${r.daysMax} days` : d === 1 ? 'day' : d === 7 ? 'week' : d === 14 ? 'fortnight' : d === 30 ? 'month' : d === 90 ? '3 months' : d === 180 ? '6 months' : d === 365 ? 'year' : `${d} days`;
@@ -344,7 +358,8 @@ export function rowsFromText(text) {
   return t.slice(hasHead ? 1 : 0).map(r => {
     const g = k => hasHead && c[k] >= 0 ? r[c[k]] || '' : '';
     const days = parseInt(g('days'), 10) || frequencyDays(g('freq'));
-    return { title: r[hasHead ? name : 0] || '', area: g('area'), days: days || null, effort: parseInt(g('mins'), 10) || 15, rollsOver: /^y|true|1/i.test(g('roll')), months: parseMonths(g('months')) };
+    const asNeeded = !days && /as.?needed|when.?needed/i.test(g('freq'));
+    return { title: r[hasHead ? name : 0] || '', area: g('area'), asNeeded, days: days || null, effort: parseInt(g('mins'), 10) || 15, rollsOver: /^y|true|1/i.test(g('roll')), months: parseMonths(g('months')) };
   }).filter(r => r.title);
 }
 /** Spread first due dates by up to about a quarter of the interval, so same-interval chores don't land together. */
@@ -368,6 +383,8 @@ export function choresFromRows(rows, day) {
     if (r.fixed) {
       c.repeat = { type: 'fixed', days: 7, daysMax: null, weekday: r.fixed.weekday, everyWeeks: r.fixed.everyWeeks || 1, anchor: null };
       c.alt = r.alt || null; c.holidayShift = !!r.holidayShift; c.rollForward = r.rollForward !== false;
+    } else if (r.asNeeded) {
+      c.repeat = { ...c.repeat, type: 'asneeded', nudgeDays: r.nudgeDays || null };
     } else if (r.days) {
       c.repeat = { type: 'since', days: r.days, daysMax: null, weekday: 1, everyWeeks: 1, anchor: null };
       const off = spread.get(r.id);

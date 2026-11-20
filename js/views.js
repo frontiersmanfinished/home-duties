@@ -4,7 +4,7 @@ import * as D from './store.js';
 import { S } from './store.js';
 import { esc, icon, initials } from './ui.js';
 
-export const V = { view: 'today', filter: 'mine', quick: false, openRooms: new Set(), roomsTouched: false, currentRoom: null, sort: { key: 'due', dir: 1 }, search: '', selected: new Set(), weekDay: null, trendPick: null, logShown: 40 };
+export const V = { showAsNeeded: false, view: 'today', filter: 'mine', quick: false, openRooms: new Set(), roomsTouched: false, currentRoom: null, sort: { key: 'due', dir: 1 }, search: '', selected: new Set(), weekDay: null, trendPick: null, logShown: 40 };
 export const states = (day = E.today()) => D.liveChores().map(c => E.stateOf(c, day, D.seasons()));
 
 function whoBadge(c) {
@@ -48,7 +48,13 @@ export function viewToday(day) {
     : `<div class="card clear"><span class="tile" style="--tile:#A8D5BA">${icon('sparkles')}</span><div><b>${V.quick ? 'Nothing that quick right now' : 'All clear for today'}</b><small class="muted">${m.done ? `${m.done} done. Nice work.` : 'Nothing is due.'}</small></div></div>`;
   const log = D.doneToday(day), mins = log.reduce((a, e) => a + (e.minutes || 0), 0), st = E.streak(D.allLog(), day);
   const roundup = `<div class="card roundup"><div><b>${st}</b><small>day streak</small></div><div><b>${log.length}</b><small>done today</small></div><div><b>${E.effortText(mins) || '0 min'}</b><small>of effort</small></div></div>`;
-  return `${filterPills()}${nextCard}${section('Overdue', rows(m.overdue))}${section('Due today', rows(m.dueToday))}${section('Quick wins', rows(m.quick))}${m.rollover.length ? `<h3 class="sec">Every day <small>tick if you like</small></h3>${m.rollover.map(s => row(s, day, { sub: s.ticked ? 'Ticked today' : `${D.room(s.chore.roomId).name}` })).join('')}` : ''}${roundup}`;
+  return `${filterPills()}${nextCard}${section('Overdue', rows(m.overdue))}${section('Due today', rows(m.dueToday))}${section('Quick wins', rows(m.quick))}${asNeededSection(m.asNeeded, day)}${m.rollover.length ? `<h3 class="sec">Every day <small>tick if you like</small></h3>${m.rollover.map(s => row(s, day, { sub: s.ticked ? 'Ticked today' : `${D.room(s.chore.roomId).name}` })).join('')}` : ''}${roundup}`;
+}
+
+function asNeededSection(list, day) {
+  if (!list.length) return '';
+  const nudged = list.filter(s => s.nudge), shown = V.showAsNeeded ? list : nudged;
+  return `<h3 class="sec">As needed <small>tap when you do one</small></h3>${shown.map(s => row(s, day, { sub: s.nudge ? E.dueText(s, day) : E.sinceText(s), cls: s.nudge ? 'nudge' : '' })).join('')}${nudged.length === list.length ? '' : `<button class="btn ghost wide" data-asneeded>${V.showAsNeeded ? 'Show fewer' : nudged.length ? `Show all ${list.length}` : `Show ${list.length} as-needed chore${list.length === 1 ? '' : 's'}`}</button>`}`;
 }
 
 export function viewRooms(day) {
@@ -60,7 +66,7 @@ export function viewRooms(day) {
     const open = V.openRooms.has(r.id);
     const live = list.filter(s => s.status !== 'resting');
     const fresh = live.length ? live.reduce((a, s) => a + (s.status === 'rollover' ? 0 : E.freshness(s, day)), 0) / live.length : 0;
-    return `<section class="room${open ? ' open' : ''}"><button class="room-h" data-room="${esc(r.id)}" aria-expanded="${open}"><span class="tile" style="--tile:${esc(r.color)}">${icon(r.icon)}</span><span class="txt"><b>${esc(r.name)}</b><small>${list.length} chore${list.length === 1 ? '' : 's'}${over ? ` · ${over} overdue` : ''}${due ? ` · ${due} today` : ''}</small><i class="bar ${over ? 'late' : fresh >= .75 ? 'soon' : 'ok'}"><i style="width:${Math.round(fresh * 100)}%"></i></i></span>${icon('chevron-down', 'chev')}</button>${open ? `<div class="room-b">${list.map(s => row(s, day, { sub: s.status === 'overdue' || s.status === 'resting' ? E.dueText(s, day) : `${E.lastDoneText(s.chore, day)} · ${E.dueText(s, day)}`, bar: s.status !== 'resting' && s.status !== 'rollover' })).join('') || '<p class="muted pad">Nothing here yet.</p>'}</div>` : ''}</section>`;
+    return `<section class="room${open ? ' open' : ''}"><button class="room-h" data-room="${esc(r.id)}" aria-expanded="${open}"><span class="tile" style="--tile:${esc(r.color)}">${icon(r.icon)}</span><span class="txt"><b>${esc(r.name)}</b><small>${list.length} chore${list.length === 1 ? '' : 's'}${over ? ` · ${over} overdue` : ''}${due ? ` · ${due} today` : ''}</small><i class="bar ${over ? 'late' : fresh >= .75 ? 'soon' : 'ok'}"><i style="width:${Math.round(fresh * 100)}%"></i></i></span>${icon('chevron-down', 'chev')}</button>${open ? `<div class="room-b">${list.map(s => row(s, day, { sub: s.status === 'asneeded' ? `${E.sinceText(s)} · As needed` : s.status === 'overdue' || s.status === 'resting' ? E.dueText(s, day) : `${E.lastDoneText(s.chore, day)} · ${E.dueText(s, day)}`, bar: !['resting', 'rollover', 'asneeded'].includes(s.status) })).join('') || '<p class="muted pad">Nothing here yet.</p>'}</div>` : ''}</section>`;
   }).join('');
 }
 
@@ -70,7 +76,7 @@ export function allRows(day) {
   const val = s => { const c = s.chore; return { title: s.title.toLowerCase(), room: D.room(c.roomId).name, who: c.assignees.map(a => a === 'anyone' ? 'Anyone' : D.person(a)?.name || '').join(', '), last: c.last?.at || 0, due: s.due || '9999', interval: s.interval || 99999, effort: c.effort || 0 }; };
   const list = states(day).filter(s => s.status !== 'done').map(s => ({ s, v: val(s) })).filter(r => !q || `${r.v.title} ${r.v.room} ${r.v.who}`.toLowerCase().includes(q));
   const { key, dir } = V.sort; list.sort((a, b) => (a.v[key] > b.v[key] ? 1 : a.v[key] < b.v[key] ? -1 : 0) * dir || a.v.title.localeCompare(b.v.title));
-  return `<tbody>${list.map(({ s, v }) => { const c = s.chore; return `<tr data-id="${esc(c.id)}" class="${s.status === 'overdue' ? 'late' : ''}"><th scope="row">${esc(s.title)}</th><td>${esc(v.room)}</td><td>${esc(v.who)}</td><td>${c.last ? esc(E.agoText(E.diffDays(day, E.isoOfMs(c.last.at)))) : '–'}</td><td>${s.status === 'paused' ? 'Paused' : s.status === 'resting' ? esc(E.dueText(s, day)) : s.due ? esc(E.shortDate(s.due)) : '–'}</td><td>${esc(E.intervalText(c).replace('Every ', ''))}</td><td class="num">${esc(E.effortText(c.effort))}</td></tr>`; }).join('')}</tbody>`;
+  return `<tbody>${list.map(({ s, v }) => { const c = s.chore; return `<tr data-id="${esc(c.id)}" class="${s.status === 'overdue' ? 'late' : ''}"><th scope="row">${esc(s.title)}</th><td>${esc(v.room)}</td><td>${esc(v.who)}</td><td>${c.last ? esc(E.agoText(E.diffDays(day, E.isoOfMs(c.last.at)))) : '–'}</td><td>${s.status === 'asneeded' ? 'As needed' : s.status === 'paused' ? 'Paused' : s.status === 'resting' ? esc(E.dueText(s, day)) : s.due ? esc(E.shortDate(s.due)) : '–'}</td><td>${esc(E.intervalText(c).replace('Every ', ''))}</td><td class="num">${esc(E.effortText(c.effort))}</td></tr>`; }).join('')}</tbody>`;
 }
 export function viewAll(day) {
   return `<label class="search">${icon('search')}<input id="all-q" type="search" placeholder="Search chores" value="${esc(V.search)}" aria-label="Search chores"></label>
@@ -81,7 +87,7 @@ export function viewWeek(day) {
   const all = states(day), days = Array.from({ length: 7 }, (_, i) => E.addDays(day, i)), map = new Map(days.map(d => [d, []]));
   const end = days[6];
   for (const s of all) {
-    if (['rollover', 'paused', 'done', 'deleted', 'resting', 'someday'].includes(s.status)) continue;
+    if (['rollover', 'paused', 'done', 'deleted', 'resting', 'someday', 'asneeded'].includes(s.status)) continue;
     if (s.status === 'overdue') { map.get(day).push({ s, title: s.title }); }
     for (const d of E.projectDates(s.chore, s, day, end, D.seasons())) if (map.has(d) && !(s.status === 'overdue' && d === day)) map.get(d).push({ s, title: s.chore.alt ? E.displayTitle(s.chore, d) : s.title });
   }
@@ -90,7 +96,7 @@ export function viewWeek(day) {
   const to = E.addMonths(day, 3), up = [];
   for (const s of all) {
     const c = s.chore, big = c.repeat.type === 'none' || (s.interval || 0) >= 30 || s.status === 'resting';
-    if (!big || !s.due || ['paused', 'done', 'deleted', 'rollover'].includes(s.status) || s.due <= end || s.due > to) continue;
+    if (!big || !s.due || ['paused', 'done', 'deleted', 'rollover', 'asneeded'].includes(s.status) || s.due <= end || s.due > to) continue;
     up.push(s);
   }
   up.sort((a, b) => a.due.localeCompare(b.due));

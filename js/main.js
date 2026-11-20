@@ -90,6 +90,7 @@ root.addEventListener('click', async e => {
   if (d.bulk) { if (d.bulk === 'cancel') { V.selected.clear(); return render(); } return bulk(d.bulk, () => { V.selected.clear(); render(); }); }
   if (V.view === 'settings') return;
   if (d.filter) { V.filter = d.filter; return render(); }
+  if (d.asneeded !== undefined) { V.showAsNeeded = !V.showAsNeeded; return render(); }
   if (d.quick !== undefined) { V.quick = !V.quick; return render(); }
   if (d.room) { const r = d.room; V.openRooms.has(r) ? V.openRooms.delete(r) : V.openRooms.add(r); V.currentRoom = r; return render(); }
   if (d.sort) { V.sort = { key: d.sort, dir: V.sort.key === d.sort ? -V.sort.dir : 1 }; return render(); }
@@ -134,7 +135,7 @@ function endGesture() {
   h.card.classList.remove('swiping'); h.inner.style.transform = '';
   const st = E.stateOf(D.chore(h.id), E.today(), D.seasons());
   if (h.dx > 90) { if (st.status === 'rollover') D.tickRollover(h.id); else finish(h.id, h.card); }
-  else if (h.dx < -90 && st.status !== 'rollover') snoozeSheet(h.id);
+  else if (h.dx < -90 && !['rollover', 'asneeded'].includes(st.status)) snoozeSheet(h.id);
 }
 addEventListener('pointerup', endGesture); addEventListener('pointercancel', endGesture);
 root.addEventListener('contextmenu', e => { if (e.target.closest('.chore')) e.preventDefault(); });
