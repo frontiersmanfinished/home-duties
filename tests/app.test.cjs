@@ -57,7 +57,7 @@ const cardFor = (p, title) => p.page.locator('.chore', { hasText: title }).first
 
   console.log('Import');
   const text = STARTER ? fs.readFileSync(STARTER, 'utf8') : 'Chore,Area,IntervalDays,EstMinutes,RollsOver\nFeed pets,Pets,1,5,Yes\nClean toilets,Bathroom,7,10,No';
-  const expected = STARTER ? 89 : 2;
+  const expected = STARTER ? JSON.parse(text).chores.length : 2;
   await check(`preview shows ${expected} new chores before adding`, async () => { await A.page.click('[data-go=import]'); await A.page.setInputFiles('#imp-file', { name: 's.json', mimeType: 'application/json', buffer: Buffer.from(text) }); await A.page.waitForSelector(`text=${expected} new`); assert.equal(docs('chores').length, 0); await shot(A, '02-import'); });
   await check('adding saves them all', async () => { await A.page.click('#imp-yes'); await until(() => docs('chores').length === expected); });
   await check('re-importing adds nothing', async () => { await sleep(100); await A.page.click('#nav [data-tab=progress]').catch(() => {}); await tab(A, 'today'); const before = docs('chores').length; await A.page.click('#menu'); await A.page.click('[data-m=settings]'); await A.page.click('[data-go=import]'); await A.page.fill('#imp-text', text); await A.page.click('#imp-go'); await A.page.waitForSelector(`text=0 new`); assert(await A.page.isDisabled('#imp-yes')); await A.page.goBack(); assert.equal(docs('chores').length, before); await tab(A, 'today'); });
@@ -150,7 +150,7 @@ const cardFor = (p, title) => p.page.locator('.chore', { hasText: title }).first
   await check('dark theme follows the phone', async () => { await signIn(D); await D.page.waitForSelector('.next'); assert.equal(await D.page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(38, 48, 58)'); await shot(D, '09-dark'); await D.page.click('#fab'); await sleep(50); await D.page.goBack(); });
   await D.ctx.close(); pages.forEach(p => p.isClosed() && pages.delete(p));
   const W = await phone(browser, 'Alex', 'alex@test.example', { sw: true, at: '2026-11-27T09:30:00+10:30' });
-  await check('installed app opens with no connection', async () => { await signIn(W); await W.page.evaluate(() => navigator.serviceWorker.ready); await until(() => W.page.evaluate(async () => (await (await caches.open('home-duties-v3')).keys()).length > 15), 8000); await until(() => W.page.evaluate(() => !!navigator.serviceWorker.controller), 8000); await W.page.reload(); await W.page.waitForSelector('#nav'); await W.ctx.setOffline(true); await W.page.reload(); await W.page.waitForSelector('#nav', { timeout: 8000 }); await W.page.waitForSelector('.chore'); });
+  await check('installed app opens with no connection', async () => { await signIn(W); await W.page.evaluate(() => navigator.serviceWorker.ready); await until(() => W.page.evaluate(async () => (await (await caches.open('home-duties-v4')).keys()).length > 15), 8000); await until(() => W.page.evaluate(() => !!navigator.serviceWorker.controller), 8000); await W.page.reload(); await W.page.waitForSelector('#nav'); await W.ctx.setOffline(true); await W.page.reload(); await W.page.waitForSelector('#nav', { timeout: 8000 }); await W.page.waitForSelector('.chore'); });
   await W.ctx.close(); pages.forEach(p => p.isClosed() && pages.delete(p));
 
   await check('no script errors on any phone', () => assert.deepEqual(errors, []));

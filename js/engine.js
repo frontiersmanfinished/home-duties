@@ -198,7 +198,9 @@ export function buildToday(chores, day, seasons, filter, meId, doneToday = 0, ma
   const dueToday = rows.filter(s => s.status === 'today' && fits(s)).sort(sortByUrgency);
   const asNeeded = rows.filter(s => s.status === 'asneeded').sort((a, b) => (b.nudge - a.nudge) || ((b.sinceDays ?? -1) - (a.sinceDays ?? -1)) || a.title.localeCompare(b.title));
   const rollover = rows.filter(s => s.status === 'rollover').sort((a, b) => (a.ticked - b.ticked) || a.title.localeCompare(b.title));
-  const quick = rows.filter(s => s.status === 'soon' && (s.chore.effort || 0) <= 10).sort(sortByUrgency).slice(0, 4);
+  // Quick wins are short jobs coming up soon, not ones already done or skipped today.
+  const touchedToday = c => [c.last, c.skip].some(e => e && isoOfMs(e.at) === day);
+  const quick = rows.filter(s => s.status === 'soon' && (s.chore.effort || 0) <= 10 && !touchedToday(s.chore)).sort(sortByUrgency).slice(0, 4);
   const next = overdue[0] || dueToday[0] || quick[0] || null;
   const total = doneToday + rows.filter(s => s.status === 'overdue' || s.status === 'today').length;
   return { next, overdue: overdue.filter(s => s !== next), dueToday: dueToday.filter(s => s !== next), quick: quick.filter(s => s !== next), rollover, asNeeded, total, done: doneToday, overdueCount: rows.filter(s => s.status === 'overdue').length };
@@ -260,7 +262,7 @@ export function weeklyTrend(log, day, weeks = 8) {
 }
 
 // ---- Words ----
-const PAST = { wash: 'Washed', unload: 'Unloaded', wipe: 'Wiped', sweep: 'Swept', empty: 'Emptied', clean: 'Cleaned', mop: 'Mopped', degrease: 'Degreased', descale: 'Descaled', scrub: 'Scrubbed', swap: 'Swapped', make: 'Made', change: 'Changed', rotate: 'Rotated', declutter: 'Decluttered', put: 'Put', hang: 'Hung', fold: 'Folded', tidy: 'Tidied', vacuum: 'Vacuumed', dust: 'Dusted', test: 'Tested', replace: 'Replaced', steam: 'Steamed', bring: 'Brought', rinse: 'Rinsed', water: 'Watered', mow: 'Mowed', whipper: 'Whipper-snipped', weed: 'Weeded', weeding: 'Weeded', prune: 'Pruned', clear: 'Cleared', reset: 'Reset', run: 'Ran', adjust: 'Adjusted', check: 'Checked', brush: 'Brushed', hose: 'Hosed', backwash: 'Backwashed', untangle: 'Untangled', inspect: 'Inspected', close: 'Closed', grocery: 'Shopped', meal: 'Planned', sort: 'Sorted', pay: 'Paid', feed: 'Fed', ironing: 'Ironed', spring: 'Done' };
+const PAST = { wash: 'Washed', unload: 'Unloaded', wipe: 'Wiped', sweep: 'Swept', empty: 'Emptied', clean: 'Cleaned', mop: 'Mopped', degrease: 'Degreased', descale: 'Descaled', scrub: 'Scrubbed', swap: 'Swapped', make: 'Made', change: 'Changed', rotate: 'Rotated', declutter: 'Decluttered', hang: 'Hung', fold: 'Folded', tidy: 'Tidied', vacuum: 'Vacuumed', dust: 'Dusted', test: 'Tested', replace: 'Replaced', steam: 'Steamed', bring: 'Brought', rinse: 'Rinsed', water: 'Watered', mow: 'Mowed', whipper: 'Whipper-snipped', weed: 'Weeded', weeding: 'Weeded', prune: 'Pruned', clear: 'Cleared', reset: 'Reset', run: 'Ran', adjust: 'Adjusted', check: 'Checked', brush: 'Brushed', hose: 'Hosed', backwash: 'Backwashed', untangle: 'Untangled', inspect: 'Inspected', close: 'Closed', grocery: 'Shopped', meal: 'Planned', sort: 'Sorted', pay: 'Paid', feed: 'Fed', ironing: 'Ironed', spring: 'Done' };
 export const pastVerb = title => PAST[(title || '').trim().split(/[\s/,]+/)[0].toLowerCase()] || 'Done';
 export function agoText(days) { return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days < 60 ? `${days} days ago` : days < 365 ? `${Math.round(days / 30)} months ago` : `${(days / 365).toFixed(1).replace('.0', '')} years ago`; }
 export function lastDoneText(c, day) {

@@ -38,6 +38,10 @@ assert.equal(E.stateOf({...an,repeat:{...an.repeat,nudgeDays:14}},T,S).nudge,tru
 d=E.doneChanges(an,s,new Date(2026,10,19,10).getTime(),who,T); an={...an,...d.patch}; s=E.stateOf(an,'2026-11-25',S); assert.equal(s.status,'asneeded'); assert.equal(s.sinceDays,6); assert.equal(E.sinceText(s),'6 days since last done');
 assert.equal(E.buildToday([an],T,S,'all',null).asNeeded.length,1); assert.equal(E.buildToday([an],T,S,'all',null).overdueCount,0);
 assert.equal(E.rowsFromText('Chore,Frequency\nClean car seats,As needed')[0].asNeeded,true);
+// quick wins skip chores done today; awkward verbs fall back to Done
+let qw=since(2,{title:'Put washing on',effort:5}); qw={...qw,...E.doneChanges(qw,E.stateOf(qw,T,S),new Date(2026,10,19,9).getTime(),who,T).patch};
+assert.equal(E.stateOf(qw,T,S).status,'soon'); assert.equal(E.buildToday([qw],T,S,'all',null).quick.length,0); assert.equal(E.buildToday([qw],'2026-11-20',S,'all',null).next?.chore.title,'Put washing on'); assert.equal(E.buildToday([qw],T,S,'all',null).next,null);
+assert.equal(E.lastDoneText(qw,T),'Done today by Alex'); assert.equal(E.pastVerb('Put bins out'),'Done');
 // streak
 const L=(day,kind='done')=>({day,kind}); assert.equal(E.streak([L(T),L('2026-11-18'),L('2026-11-17','skip'),L('2026-11-16')],T),3); assert.equal(E.streak([L('2026-11-18')],T),1); assert.equal(E.streak([L('2026-11-17')],T),0);
 // import
